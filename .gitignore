@@ -1,0 +1,17 @@
+# dependencies
+node_modules
+.pnpm-debug.log
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# build output
+dist
+build
+
+# local env files
+.env
+.env.local
+
+# system files
+.DS_Store
