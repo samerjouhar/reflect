@@ -12,6 +12,7 @@ export function EntryForm({ onSave, resetSignal = 0 }: Props) {
   const [draft, setDraft] = useState("");
   const [tags, setTags] = useState<string[]>([]);
 
+  // reset form when parent increments resetSignal (after save)
   useEffect(() => {
     setDraft("");
     setTags([]);

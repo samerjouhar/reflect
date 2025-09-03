@@ -17,6 +17,7 @@ export function Header({
 }) {
   return (
     <div className="flex items-center justify-between mb-4">
+      {/* Left section: Logo and title */}
       <div className="flex items-center gap-2">
         <Sparkles className="w-6 h-6" />
         <h1 className="text-2xl font-bold">Reflect — Private Journal</h1>
@@ -25,6 +26,7 @@ export function Header({
         </Badge>
       </div>
 
+      {/* Right section: Tooltip + Lock button */}
       <div className="flex items-center gap-3">
         <TooltipProvider>
           <Tooltip>

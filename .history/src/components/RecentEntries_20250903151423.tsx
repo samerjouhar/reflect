@@ -10,6 +10,7 @@ export function RecentEntries({ entries }: { entries: JournalEntry[] }) {
         .slice(0, 20)
         .map((e, idx) => (
           <div key={idx} className="p-3 rounded-2xl bg-muted/60">
+            {/* Header: Date and mood badge */}
             <div className="flex items-center justify-between text-sm">
               <div className="font-medium">{formatNice(e.date)}</div>
               <Badge variant={e.sentiment >= 0 ? "secondary" : "destructive"}>
