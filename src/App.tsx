@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import type { JournalEntry } from "@/constants";
 import { useEncryptedStore } from "@/hooks/useEncryptedStore";
 import { analyzeSentiment, extractThemes, generatePrompt, summarizeWeek } from "@/lib/nlp";
 import { todayISO } from "@/lib/date";
+import { fetchAiPrompt } from "@/lib/ai";
 
 export default function App() {
   const [passphrase, setPassphrase] = useState("");
@@ -34,7 +35,8 @@ export default function App() {
   const { entries, setEntries, persist } = useEncryptedStore(locked ? null : passphrase);
 
   const latest = entries.length ? entries[entries.length - 1] : undefined;
-  const prompt = useMemo(
+
+  const localPrompt = useMemo(
     () =>
       generatePrompt(
         latest && { sentiment: latest.sentiment, themes: latest.themes, text: latest.text },
@@ -43,10 +45,34 @@ export default function App() {
     [latest, goals]
   );
 
+  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  useEffect(() => {
+    if (locked) {
+      setAiPrompt(null);
+      setAiLoading(false);
+      return;
+    }
+  
+    const recent = entries.slice(-5).map((e) => ({
+      date: e.date,
+      text: e.text,
+      sentiment: e.sentiment,
+      themes: e.themes,
+    }));
+  
+    setAiLoading(true); 
+    fetchAiPrompt(goals, recent)
+      .then((p) => setAiPrompt(p))
+      .catch(() => setAiPrompt(null))
+      .finally(() => setAiLoading(false));
+  }, [entries, goals, locked]);
+
   const trendData = useMemo(
-    () => entries.map((e) => ({ date: e.date.slice(5), score: e.sentiment })),
+    () => entries.map((e) => ({ date: (e.date || "").slice(5), score: e.sentiment })),
     [entries]
   );
+
   const weekly = useMemo(() => summarizeWeek(entries), [entries]);
   const [resetCounter, setResetCounter] = useState(0);
 
@@ -56,7 +82,11 @@ export default function App() {
     const themes = Array.from(new Set([...extractThemes(text), ...tagOverrides]));
     const next: JournalEntry[] = [...entries, { date, text, sentiment: score, themes }];
     setEntries(next);
-    persist(next);
+    try {
+      persist(next);
+    } catch (e) {
+      console.error("Persist failed:", e);
+    }
     setResetCounter((n) => n + 1);
   }
 
@@ -100,7 +130,11 @@ export default function App() {
     });
     const next = [...entries.filter((e) => e.date < seeded[0].date), ...seeded];
     setEntries(next);
-    persist(next);
+    try {
+      persist(next);
+    } catch (e) {
+      console.error("Persist failed:", e);
+    }
   }
 
   function exportJson() {
@@ -114,7 +148,10 @@ export default function App() {
   }
 
   function saveGoals(str: string) {
-    const arr = str.split(",").map((s) => s.trim()).filter(Boolean);
+    const arr = str
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     setGoals(arr);
     localStorage.setItem(PREFS_KEY, JSON.stringify(arr));
   }
@@ -146,9 +183,7 @@ export default function App() {
                 Seed demo data
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Tip: set a memorable phrase.
-            </p>
+            <p className="text-xs text-muted-foreground">Tip: set a memorable phrase.</p>
           </CardContent>
         </Card>
       ) : (
@@ -169,20 +204,49 @@ export default function App() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid gap-3">
-                      <PromptChip text={prompt} />
-                      <div className="text-xs text-muted-foreground">Not feeling it? Try one of these:</div>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {[
-                          "What’s one small win today?",
-                          "What would future you thank you for?",
-                          "Which moment felt most like you?",
-                          "What drained you—and what refilled you?",
-                        ].map((t, i) => (
-                          <PromptChip key={i} text={t} />
-                        ))}
+                  <div className="grid gap-3">
+                    {aiLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <svg
+                          className="animate-spin h-4 w-4 text-gray-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          />
+                        </svg>
+                        Generating your personalized prompt...
                       </div>
+                    ) : (
+                      <PromptChip text={aiPrompt ?? localPrompt} />
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Not feeling it? Try one of these:
                     </div>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      {[
+                        "What’s one small win today?",
+                        "What would future you thank you for?",
+                        "Which moment felt most like you?",
+                        "What drained you—and what refilled you?",
+                      ].map((t, i) => (
+                        <PromptChip key={i} text={t} />
+                      ))}
+                    </div>
+                  </div>
 
                     <EntryForm onSave={(text, tags) => addEntry(text, tags)} resetSignal={resetCounter} />
 
@@ -232,11 +296,11 @@ export default function App() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Here’s a gentle summary for the last month based on your entries.
+                    Here’s a gentle summary for this month based on your entries.
                   </p>
                   <ReflectionMonth entries={entries} />
                   <div className="text-xs text-muted-foreground">
-                    These insights are generated locally using simple heuristics and a lexicon sentiment model.
+                    Insights are generated locally using simple heuristics and a lexicon sentiment model.
                   </div>
                 </CardContent>
               </Card>
