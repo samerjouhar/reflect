@@ -1,5 +1,3 @@
-Got it — here’s your updated README with the **OpenAI API** integrated info woven into the existing sections, without adding new sections:
-
 # Reflect
 **A private, AI-powered journaling companion.**
 
