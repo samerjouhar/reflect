@@ -3,7 +3,11 @@
 
 Reflect helps you build a consistent journaling habit with **encrypted, on-device storage**, mood tracking, and insightful monthly reflections — all while keeping your data 100% private.
 
+---
+## Design Documentation
+For a deeper dive into the architecture, design tradeoffs, and tech stack, see the [Design Documentation](DOCUMENTATION.md).
 
+---
 ## Features
 
 -  **Quick feelings & dynamic prompts** to make writing easier.
@@ -13,6 +17,7 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 -  **Monthly reflections** that highlight recurring themes.
 
 -  **AI-powered reflections** – uses the OpenAI API to generate summaries, suggestions, and recurring theme analysis from your entries.
+---
 
 ## Tech Stack
 
@@ -28,11 +33,8 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 
 * [OpenAI API](https://platform.openai.com/docs/) for natural language processing, embeddings, and monthly reflection generation
 
-## Getting Started
-
-This guide shows you how to build and run Reflect from a clean machine—no prior dev setup required.
-
 ---
+## Getting Started
 
 ### 0) What you’ll install (once)
 
@@ -55,18 +57,14 @@ This guide shows you how to build and run Reflect from a clean machine—no prio
     ```bash
     docker --version
     ```
-
 ---
-
 ### 1) Get the code
 
 ```bash
 git clone https://github.com/<your-username>/reflect.git
 cd reflect
 ```
-
 ----------
-
 ### 2) Install dependencies
 
 **Frontend (React app):**
@@ -83,9 +81,7 @@ cd server
 npm install
 cd ..
 ```
-
 ----------
-
 ### 3) Configure environment variables (backend)
 
 Create a file named `.env` inside the `server` folder. Open `server/.env` in a text editor and set these values:
@@ -104,7 +100,7 @@ PORT=8787
 **Where do I get OPENAI_API_KEY?**  
 Create one in your OpenAI dashboard (Account → API Keys). Copy the key and paste it as the value for `OPENAI_API_KEY`.  
 **Never commit this key** to Git.
-
+---
 ### 4) Start ChromaDB (vector database)
 
 Pull the official image and run it locally:
@@ -132,9 +128,7 @@ Stop/start later if needed:
 docker stop chroma
 docker start chroma
 ```
-
-----------
-
+---
 ### 5) Run the backend (API server)
 
 In a new terminal window:
@@ -156,9 +150,7 @@ Health check (optional):
 ```bash
 curl http://localhost:8787/api/health
 ```
-
-----------
-
+---
 ### 6) Run the frontend (web app)
 
 In another terminal window:
