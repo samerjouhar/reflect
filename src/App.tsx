@@ -298,7 +298,7 @@ export default function App() {
                   <p className="text-sm text-muted-foreground">
                     Here’s a gentle summary for this month based on your entries.
                   </p>
-                  <ReflectionMonth entries={entries} />
+                  <ReflectionMonth entries={entries} goals={goals} />
                   <div className="text-xs text-muted-foreground">
                     Insights are generated locally using simple heuristics and a lexicon sentiment model.
                   </div>
