@@ -14,8 +14,21 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 
 -  **AI-powered reflections** – uses the OpenAI API to generate summaries, suggestions, and recurring theme analysis from your entries.
 
+## Tech Stack
 
-## 🚀 Getting Started
+* [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+
+* [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+
+* [Recharts](https://recharts.org/) for data visualization
+
+* [CryptoJS](https://www.npmjs.com/package/crypto-js) for encryption
+
+* [Sentiment](https://www.npmjs.com/package/sentiment) for mood scoring
+
+* [OpenAI API](https://platform.openai.com/docs/) for natural language processing, embeddings, and monthly reflection generation
+
+## Getting Started
 
 This guide shows you how to build and run Reflect from a clean machine—no prior dev setup required.
 
@@ -42,8 +55,6 @@ This guide shows you how to build and run Reflect from a clean machine—no prio
     ```bash
     docker --version
     ```
-
-> If you can’t use Docker, ask us for an alternative Chroma setup, but Docker is by far the easiest.
 
 ---
 
@@ -162,18 +173,3 @@ Open the app at:
 ```
 http://localhost:5173
 ```
----
-
-## Tech Stack
-
-* [React](https://react.dev/) + [Vite](https://vitejs.dev/)
-
-* [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
-
-* [Recharts](https://recharts.org/) for data visualization
-
-* [CryptoJS](https://www.npmjs.com/package/crypto-js) for encryption
-
-* [Sentiment](https://www.npmjs.com/package/sentiment) for mood scoring
-
-* [OpenAI API](https://platform.openai.com/docs/) for natural language processing, embeddings, and monthly reflection generation
