@@ -29,7 +29,7 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 * [React](https://react.dev/) + [Vite](https://vitejs.dev/)
 * [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
