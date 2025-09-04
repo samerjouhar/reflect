@@ -8,11 +8,9 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 ---
 
 ## Features
-- **Local-only encryption** – your entries never leave your browser.
 - **Quick feelings & dynamic prompts** to make writing easier.
 - **Mood trend chart** to visualize emotional patterns over time.
 - **Monthly reflections** that highlight recurring themes.
-- **Offline-first** – works without an internet connection.
 - **AI-powered reflections** – uses the OpenAI API to generate summaries, suggestions, and recurring theme analysis from your entries.
 
 ---
