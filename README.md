@@ -101,9 +101,10 @@ CHROMA_URL=http://localhost:8000
 PORT=8787
 ```
 
-**Where do I get OPENAI_API_KEY?**  
+Where do I get **OPENAI_API_KEY**?
 Create one in your OpenAI dashboard (Account → API Keys). Copy the key and paste it as the value for `OPENAI_API_KEY`.  
-**Never commit this key** to Git.
+Never commit this key to Git.
+
 ---
 ### 4) Start ChromaDB (vector database)
 
