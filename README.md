@@ -3,6 +3,9 @@
 
 Reflect helps you build a consistent journaling habit with **encrypted, on-device storage**, mood tracking, and insightful monthly reflections — all while keeping your data 100% private.
 
+## Design Documentation
+For a deeper dive into the architecture, design tradeoffs, and tech stack, see the [Design Documentation](DOCUMENTATION.md).
+
 ---
 
 ## Features
