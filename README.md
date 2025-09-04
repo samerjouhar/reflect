@@ -8,6 +8,10 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 For a deeper dive into the architecture, design tradeoffs, and tech stack, see the [Design Documentation](DOCUMENTATION.md).
 
 ---
+## Video Presentation
+For a live tech demo, [watch here](https://youtu.be/9Nd6bHfSnm8).
+
+---
 ## Features
 
 -  **Quick feelings & dynamic prompts** to make writing easier.
