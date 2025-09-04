@@ -173,3 +173,7 @@ Open the app at:
 ```
 http://localhost:5173
 ```
+
+Once you visit the site and press **Unlock**, you should be presented with a page like this: 
+<img width="1680" height="1050" alt="Screenshot 2025-09-04 at 5 43 42 PM" src="https://github.com/user-attachments/assets/ec44e940-b31e-4cd4-b497-99a955c4e09e" />
+
