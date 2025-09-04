@@ -18,23 +18,14 @@ Reflect helps you build a consistent journaling habit with **encrypted, on-devic
 ---
 
 ## Getting Started
-1. **Install dependencies**
-   ```bash
-   npm install
-````
 
-2. **Set up environment variables**
-   Create a `.env` file and add your OpenAI API key:
+1. Clone the repo and install dependencies in both / (frontend) and /server (backend).
 
-   ```bash
-   VITE_OPENAI_API_KEY=your_api_key_here
-   ```
-3. **Run locally**
+2. Run ChromaDB in Docker to handle embeddings + retrieval.
 
-   ```bash
-   npm run dev
-   ```
-4. Open [http://localhost:5173](http://localhost:5173) in your browser.
+3. Create a .env file in /server with your OpenAI API key and model settings.
+
+4. Start both servers: one for the API, one for the frontend UI.
 
 ---
 
