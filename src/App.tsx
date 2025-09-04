@@ -84,6 +84,17 @@ export default function App() {
     setEntries(next);
     try {
       persist(next);
+      fetch('/api/index-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `${date}:${entries.length}`,
+          date,
+          text,
+          sentiment: score,
+          themes,
+        }),
+      }).catch(() => {});
     } catch (e) {
       console.error("Persist failed:", e);
     }

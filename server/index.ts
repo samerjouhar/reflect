@@ -1,24 +1,57 @@
 import 'dotenv/config';
 import express from 'express';
 import fetch from 'node-fetch';
+import { ChromaClient, Collection } from "chromadb";
+
+import { OpenAIEmbeddingFunction } from '@chroma-core/openai';
 
 const app = express();
 app.use(express.json());
+
+const CHROMA_URL = process.env.CHROMA_URL || 'http://localhost:8000';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+const OPENAI_EMBED_MODEL = process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small';
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const PORT = Number(process.env.PORT || 8787);
+
+const chroma = new ChromaClient({ path: CHROMA_URL });
+
+const embedder = new OpenAIEmbeddingFunction({
+  apiKey: OPENAI_API_KEY,
+  modelName: OPENAI_EMBED_MODEL
+});
+
+async function getCollection(): Promise<Collection> {
+  return chroma.getOrCreateCollection({
+    name: "reflect-journal",
+    embeddingFunction: embedder,
+  });
+}
 
 app.use((req, _res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    chroma: CHROMA_URL,
+    model: MODEL,
+    keySet: !!OPENAI_API_KEY,
+  });
+});
 
 type PromptReq = {
   goals: string[];
   recentEntries: Array<{ date: string; text: string; sentiment?: number; themes?: string[] }>;
 };
 
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+type MyMeta = {
+  date?: string;
+  sentiment?: number;
+  themes_json?: string;
+};
 
 function fallbackPrompt(goals: string[], recentEntries: PromptReq['recentEntries']) {
   const goalLine = goals.length ? ` around ${goals.slice(0, 3).join(', ')}` : '';
@@ -29,168 +62,73 @@ function fallbackPrompt(goals: string[], recentEntries: PromptReq['recentEntries
   return `What's one small win today, and what made it possible${goalLine}?`;
 }
 
-app.post('/api/generate-prompt', async (req, res) => {
-  const { goals = [], recentEntries = [] } = (req.body || {}) as PromptReq;
-
-  if (!OPENAI_API_KEY) {
-    console.error('Missing OPENAI_API_KEY');
-    return res.json({ prompt: fallbackPrompt(goals, recentEntries), source: 'fallback:missing_key' });
+function parseThemesJSON(s?: string): string[] {
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
   }
+}
 
-  const system = `You are Reflect, a private journaling companion. 
-  You help users grow by asking **one thoughtful, concise question** each day.
-
-  Your behavior:
-  - **Often, but not always, reference the user's unique past entries or themes** to make the question feel personal.
-  - Recognize **patterns or changes over time**, not just today's entry.
-  - Encourage self-reflection, not generic motivation.
-  - Never repeat exact questions.
-  - Don't repeat similar lines of advice too often, such as don't simply suggest better sleep multiple responses in a row.
-  - Never output advice, lists, or prefaces — only one clear question.
-  - Keep your question under 200 characters.
-  - Be warm, curious, and supportive, never clinical or judgmental.`;
-
-  const goalsLine = goals.length
-    ? `User's stated goals: ${goals.join(', ')}.`
-    : `No explicit goals provided.`;
-
-  const recent = recentEntries
-    .slice(-7)
-    .map((e, i) => {
-      const t = (e.themes || []).slice(0, 4).join(', ');
-      return `${i + 1}. ${e.date}: ${e.text.slice(0, 180)}${t ? ` (themes: ${t})` : ''}`;
-    })
-    .join('\n');
-
-  const user = `Generate ONE journaling question for today that builds on this ongoing context.
-
-  ${goalsLine}
-
-  Recent journal history (most recent last):
-  ${recent || 'No previous entries.'}
-
-  Your question should:
-  - Show awareness of past patterns or themes.
-  - Invite reflection on progress, setbacks, or recurring feelings.
-  - Avoid repeating wording from earlier questions.
-  - If a user shows reluctance to speak about prior issues, do not press the topic.
-
-  Return ONLY the question — no greetings, no emojis, no extra text.`;
-
-
-    try {
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          temperature: 0.7,
-          max_tokens: 120,
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-        }),
-      });
-
-      if (!r.ok) {
-        const text = await r.text();
-        console.error('OpenAI error:', text);
-        return res.json({ prompt: fallbackPrompt(goals, recentEntries), source: 'fallback:openai_error' });
-      }
-
-      const data: any = await r.json();
-      const prompt =
-        data?.choices?.[0]?.message?.content?.trim() ||
-        fallbackPrompt(goals, recentEntries);
-
-      return res.json({ prompt, source: 'openai' });
-    } catch (err: any) {
-      console.error('OpenAI call failed:', err);
-      return res.json({ prompt: fallbackPrompt(goals, recentEntries), source: 'fallback:exception' });
-    }
-  });
-
-  const PORT = Number(process.env.PORT || 8787);
-  app.listen(PORT, () => {
-    console.log(`AI prompt server running on http://localhost:${PORT}`);
-    console.log('Model:', MODEL, 'Key set:', !!OPENAI_API_KEY);
-});
-
-type MonthlyReq = {
-  goals?: string[];
-  entries: Array<{ date: string; text: string; sentiment?: number; themes?: string[] }>;
-};
-
-app.post('/api/monthly-reflection', async (req, res) => {
-  const { goals = [], entries = [] } = (req.body || {}) as MonthlyReq;
-
-  const now = new Date();
-  const thisMonth = entries.filter(e => {
-    const d = new Date(e.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-
-  if (thisMonth.length === 0) {
-    return res.json({
-      source: 'fallback:no_entries',
-      reflection: {
-        summary: "No entries this month yet. A two-minute check-in can start a streak.",
-        avg: 0,
-        themes: [],
-        suggestions: ["Schedule a tiny daily ritual you can keep for 2 minutes."]
-      }
-    });
-  }
-
-  const compact = thisMonth.slice(-40).map(e => ({
-    date: e.date,
-    txt: e.text.slice(0, 350),
-    s: typeof e.sentiment === 'number' ? Number(e.sentiment.toFixed(3)) : 0,
-    t: (e.themes || []).slice(0, 6)
-  }));
-
-  const system = `You are Reflect, a warm, non-judgmental journaling companion.
-  You generate a monthly reflection that feels personal and concise.
-  Respond ONLY as strict JSON matching this TypeScript type:
-
-  type MonthlyReflection = {
-    summary: string;            // 2-4 sentences referencing this month's patterns
-    avg: number;                // average mood (-2..2), 2 decimals
-    themes: { label: string; count: number }[]; // top recurring themes (max 6)
-    suggestions: string[];      // 2-3 gentle, concrete next steps (short)
-  };`;
-
-    const goalsLine = goals.length ? `User goals: ${goals.join(', ')}.` : 'No explicit goals provided.';
-    const user = `Create MonthlyReflection for the CURRENT CALENDAR MONTH only.
-
-  ${goalsLine}
-
-  Entries (ISO date, truncated text, numeric sentiment "s", themes "t"):
-  ${JSON.stringify(compact, null, 2)}
-
-  Rules:
-  - Derive "avg" from provided sentiments (or 0 if missing) and round to 2 decimals.
-  - "summary" should reference noticeable changes or patterns (e.g., walks helped, sleep impacted mood).
-  - "themes" must aggregate recurring tags from "t".
-  - Keep suggestions specific and doable (micro-actions).
-  - Output STRICT JSON only. No markdown, no commentary.`;
+app.post('/api/generate-prompt-rag', async (req, res) => {
+  const { goals = [] } = (req.body || {}) as { goals?: string[] };
 
   try {
+    const col = await getCollection();
+
+    const today = new Date().toISOString().slice(0, 10);
+    const query = `Personalize a journaling question for ${today}. Goals: ${goals.join(', ') || 'none'}.
+Highlight patterns, not just today. Ask one short question.`;
+
+    const fortyFiveDaysAgo = Date.now() - 45 * 864e5;
+
+    const results = await col.query({
+      queryTexts: [query],
+      nResults: 8,
+      where: { date_ts: { $gte: fortyFiveDaysAgo } },
+    });
+
+    const docs = (results.documents?.[0] || [])
+      .filter((d): d is string => d !== null)
+      .map((d) => d.slice(0, 300)); 
+
+    const rawMetas = (results.metadatas?.[0] || []) as (unknown | null)[];
+    const metas: MyMeta[] = rawMetas.filter(
+      (m: any): m is MyMeta => m !== null && typeof m?.date === 'string'
+    );
+
+    const n = Math.min(docs.length, metas.length);
+    const context = Array.from({ length: n })
+      .map((_, i) => {
+        const d = docs[i];
+        const m = metas[i];
+        const themes = parseThemesJSON(m.themes_json).slice(0, 4).join(', ');
+        return `• ${m.date || 'unknown'}: ${d}${themes ? ` (themes: ${themes})` : ''}`;
+      })
+      .join('\n');
+
+    const system = `You are Reflect, a warm journaling companion.
+Return ONE concise question (<200 chars), no emojis, no preface.
+Tailor it using context and goals; avoid repetition.`;
+
+    const user = `Use the retrieved journal memories below to craft today's question.
+
+Goals: ${goals.join(', ') || 'none'}
+
+Context:
+${context || 'No retrieved memories.'}
+
+Return ONLY the question.`;
+
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
-        temperature: 0.6,
-        max_tokens: 400,
-        // If your model supports it, you can add: response_format: { type: "json_object" },
+        temperature: 0.8,
+        max_tokens: 120,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },
@@ -200,53 +138,208 @@ app.post('/api/monthly-reflection', async (req, res) => {
 
     if (!r.ok) {
       const text = await r.text();
-      console.error('OpenAI monthly error:', text);
-      // Fallback: simple local aggregation
-      const avg =
-        thisMonth.reduce((a, e) => a + (Number.isFinite(e.sentiment!) ? (e.sentiment as number) : 0), 0) /
-        thisMonth.length || 0;
-      const map: Record<string, number> = {};
-      thisMonth.forEach(e => (e.themes || []).forEach(t => (map[t] = (map[t] || 0) + 1)));
-      const themes = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label, count}));
+      console.error('RAG prompt OpenAI error:', text);
       return res.json({
+        prompt:
+          'What small habit helped most recently, and can you repeat it today?',
+        retrieved: n,
         source: 'fallback:openai_error',
+      });
+    }
+
+    const data: any = await r.json();
+    const prompt =
+      data?.choices?.[0]?.message?.content?.trim() ||
+      'What felt most like you today, and why?';
+
+    res.json({ prompt, retrieved: n, source: 'openai' });
+  } catch (e: any) {
+    console.error('generate-prompt-rag error', e);
+    res.json({
+      prompt: 'Name one moment that shifted your mood today—what made it matter?',
+      retrieved: 0,
+      source: 'fallback:exception',
+    });
+  }
+});
+
+app.post('/api/index-entry', async (req, res) => {
+  try {
+    const { id, date, text, sentiment, themes } = req.body as {
+      id: string;
+      date: string;
+      text: string;
+      sentiment?: number;
+      themes?: string[];
+    };
+
+    if (!id || !text || !date) return res.status(400).json({ error: 'missing fields' });
+
+    const col = await getCollection();
+
+    await col.upsert({
+      ids: [id],
+      documents: [text],
+      metadatas: [
+        {
+          date,                               
+          date_ts: new Date(date).getTime(),  
+          sentiment: sentiment ?? 0,
+          themes_json: JSON.stringify(themes ?? []),
+        },
+      ],
+    });
+
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error('index-entry error', e);
+    res.status(500).json({ error: 'index_failed' });
+  }
+});
+
+app.post('/api/monthly-reflection-rag', async (req, res) => {
+  const { goals = [] } = (req.body || {}) as { goals?: string[] };
+
+  try {
+    const now = new Date();
+    const monthISO = now.toISOString().slice(0, 7);
+    const startTs = new Date(`${monthISO}-01T00:00:00Z`).getTime();
+    const endTs = new Date(`${monthISO}-31T23:59:59Z`).getTime();
+    const col: Collection = await getCollection();
+
+    const results = await col.query({
+      queryTexts: [`Summarize patterns for ${monthISO}. Goals: ${goals.join(', ') || 'none'}.`],
+      nResults: 50,
+      where: {
+        $and: [
+          { date_ts: { $gte: startTs } },
+          { date_ts: { $lte: endTs } },
+        ],
+      },      
+    });
+
+    const docs = (results.documents?.[0] || [])
+      .filter((d): d is string => d !== null)
+      .map((d) => d.slice(0, 350));
+
+    const rawMetas = (results.metadatas?.[0] || []) as (unknown | null)[];
+    const metas: MyMeta[] = rawMetas.filter(
+      (m: any): m is MyMeta => m !== null && typeof m?.date === 'string'
+    );
+
+    if (!docs.length || !metas.length) {
+      return res.json({
         reflection: {
-          summary: "Here’s a light local summary based on this month’s entries.",
-          avg: Number(avg.toFixed(2)),
-          themes,
-          suggestions: ["Note one thing that lifted your energy.", "Repeat a small habit from a good day."]
-        }
+          summary: 'No entries this month yet. A two-minute check-in can start a streak.',
+          avg: 0,
+          themes: [],
+          suggestions: ['Schedule a tiny daily ritual you can keep for 2 minutes.'],
+        },
+        source: 'fallback:no_entries',
+      });
+    }
+
+    const n = Math.min(docs.length, metas.length);
+    const compact = Array.from({ length: n }).map((_, i) => {
+      const txt = docs[i];
+      const m = metas[i];
+      const s =
+        typeof m.sentiment === 'number' ? Number(m.sentiment.toFixed(3)) : 0;
+      const t = parseThemesJSON(m.themes_json).slice(0, 6);
+      return { date: m.date, txt, s, t };
+    });
+
+    const system = `You are Reflect, a warm journaling companion.
+Respond ONLY as strict JSON matching this type:
+{
+  "summary": string,
+  "avg": number,
+  "themes": [{"label": string, "count": number}],
+  "suggestions": string[]
+}. Also, never mention the year.`;
+
+    const user = `Create a monthly reflection for ${monthISO} based on the entries below.
+- Reference noticeable patterns or changes.
+- Derive "avg" from numeric "s" and round to 2 decimals.
+- Aggregate "themes" from "t" (max 6).
+- Give 2–3 concrete, gentle suggestions.
+
+Entries:
+${JSON.stringify(compact, null, 2)}
+
+Return ONLY JSON.`;
+
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        temperature: 0.6,
+        max_tokens: 400,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+    });
+
+    if (!r.ok) {
+      const text = await r.text();
+      console.error('RAG monthly OpenAI error:', text);
+      return res.json({
+        reflection: {
+          summary: 'Here’s a light local summary based on this month’s entries.',
+          avg: 0,
+          themes: [],
+          suggestions: ['Note one thing that lifted your energy.', 'Repeat a small habit from a good day.'],
+        },
+        source: 'fallback:openai_error',
       });
     }
 
     const data: any = await r.json();
     const raw = data?.choices?.[0]?.message?.content ?? '{}';
-    let parsed;
+
+    let parsed: {
+      summary: string;
+      avg: number;
+      themes: { label: string; count: number }[];
+      suggestions: string[];
+    };
+
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
       console.error('Monthly JSON parse failed:', e, raw);
       return res.json({
-        source: 'fallback:parse_error',
         reflection: {
-          summary: "Couldn’t parse AI response. Here’s a simple local snapshot.",
+          summary: "Couldn't parse AI response. Here’s a simple local snapshot.",
           avg: 0,
           themes: [],
-          suggestions: ["Capture one meaningful moment from today."]
-        }
+          suggestions: ['Capture one meaningful moment from today.'],
+        },
+        source: 'fallback:parse_error',
       });
     }
-    return res.json({ source: 'openai', reflection: parsed });
-  } catch (err) {
-    console.error('Monthly call failed:', err);
-    return res.json({
-      source: 'fallback:exception',
+
+    parsed.avg = Number.isFinite(parsed.avg) ? Number(parsed.avg.toFixed(2)) : 0;
+
+    res.json({ reflection: parsed, source: 'openai' });
+  } catch (e: any) {
+    console.error('monthly-reflection-rag error', e);
+    res.json({
       reflection: {
-        summary: "We hit a network hiccup. Showing a basic local summary.",
+        summary: 'We hit a hiccup. Showing a basic local summary.',
         avg: 0,
         themes: [],
-        suggestions: ["Try a 2-minute check-in tonight."]
-      }
+        suggestions: ['Try a 2-minute check-in tonight.'],
+      },
+      source: 'fallback:exception',
     });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`AI prompt server (RAG) running on http://localhost:${PORT}`);
+  console.log('Chroma:', CHROMA_URL, '| Model:', MODEL, '| Key set:', !!OPENAI_API_KEY);
 });

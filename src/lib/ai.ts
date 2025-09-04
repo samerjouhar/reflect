@@ -1,5 +1,5 @@
 export async function fetchAiPrompt(goals: string[], recentEntries: any[]) {
-    const res = await fetch('/api/generate-prompt', { 
+    const res = await fetch('/api/generate-prompt-rag', { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ goals, recentEntries }),
@@ -20,7 +20,7 @@ export type MonthlyReflection = {
     goals: string[],
     entries: Array<{ date: string; text: string; sentiment?: number; themes?: string[] }>
   ): Promise<MonthlyReflection> {
-    const res = await fetch('/api/monthly-reflection', {
+    const res = await fetch('/api/monthly-reflection-rag', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ goals, entries }),

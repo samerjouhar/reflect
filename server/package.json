@@ -4,14 +4,16 @@
     "dev": "node --loader ts-node/esm index.ts"
   },
   "dependencies": {
-    "dotenv": "^16.3.1",
-    "express": "^4.19.2",
+    "@chroma-core/openai": "^0.1.7",
+    "chromadb": "^3.0.14",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.4.2",
+    "@types/express": "^4.17.23",
+    "@types/node": "^20.19.12",
     "ts-node": "^10.9.2",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.2"
   }
 }

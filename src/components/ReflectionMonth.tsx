@@ -11,7 +11,6 @@ const round2 = (n: number) => Number.isFinite(n) ? parseFloat(n.toFixed(2)) : 0;
 export function ReflectionMonth({ entries, goals = [] as string[] }: { entries: JournalEntry[]; goals?: string[] }) {
   const now = new Date();
 
-  // Filter to current calendar month on the client (UI stays snappy)
   const monthEntries = useMemo(
     () =>
       entries.filter(e => {
@@ -21,7 +20,6 @@ export function ReflectionMonth({ entries, goals = [] as string[] }: { entries: 
     [entries]
   );
 
-  // Chart data (local) with rounding
   const data = useMemo(
     () =>
       monthEntries.map(e => ({
@@ -50,7 +48,6 @@ export function ReflectionMonth({ entries, goals = [] as string[] }: { entries: 
 
   return (
     <div className="space-y-4">
-      {/* Summary / loading / error */}
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
